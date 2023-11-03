@@ -1,0 +1,13 @@
+{
+    "score": 0.8,
+    "confusion_matrix": {
+            "labels": ["silence","aa","ai","an","au","bb","ch","dd","ee","ei","ff","gg","gn","ii","jj","kk","ll","mm","nn","on","ou","pp","rr","ss","tt","un","uu","uy","vv","ww","yy","zz"],
+            "matrix": [[0.2, 0.4, 0.4], [0.1, 0.8, 0.1], [0.2, 0.05, 0.75]]
+        },
+    "anps": {
+      "+voiced": 0.4,
+      "-voiced": 0.5,
+      "+nasal": 0.9,
+      "-nasal": 0.75
+    }
+}
