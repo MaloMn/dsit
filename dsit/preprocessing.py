@@ -11,7 +11,8 @@ import pandas as pd
 import numpy as np
 import json
 
-from dsit.utils import check_file_exists, create_folder_if_not_exists, parser_test, serialize_example
+from dsit.utils import check_file_exists, create_folder_if_not_exists, parser_test, serialize_example, get_batch_size, \
+    generate_lbl_from_seg
 from dsit import H5_DIR, AUDIO_DIR, PHONES_CSV, TFRECORD_DIR
 
 
@@ -20,17 +21,34 @@ from dsit import H5_DIR, AUDIO_DIR, PHONES_CSV, TFRECORD_DIR
 
 
 class Data:
+    window = 0.020  # ms
+    step = 0.010  # ms
 
-    def __init__(self, file_stem: str):
+    def __init__(self, file_stem: str, debug=False):
         """
         :param file_stem: Name of the file before the extension (abc.wav => stem = "abc")
         """
+        self.debug = debug
         self.stem = file_stem
-        self.audio_path = Path(f"{AUDIO_DIR}{file_stem}.wav")
-        self.phonemes_path = Path(f"{AUDIO_DIR}{file_stem}.phon.seg")
 
+        # Checking audio file exists
+        self.audio_path = Path(f"{AUDIO_DIR}{file_stem}.wav")
         check_file_exists(self.audio_path, "wav")
-        check_file_exists(self.phonemes_path, "seg")
+
+        # Checking transcription file exists (lbl is created if it doesn't exist)
+        try:
+            self.phonemes_path = Path(f"{AUDIO_DIR}{file_stem}.lbl")
+            check_file_exists(self.phonemes_path, "lbl")
+        except FileNotFoundError:
+            self.phonemes_path = Path(f"{AUDIO_DIR}{file_stem}.seg")
+            check_file_exists(self.phonemes_path, "seg")
+
+            # Generating a lbl file
+            generate_lbl_from_seg(self.phonemes_path)
+
+            # Load lbl file
+            self.phonemes_path = Path(f"{AUDIO_DIR}{file_stem}.lbl")
+            check_file_exists(self.phonemes_path, "lbl")
 
         # TODO Resample the audio if it isn't 16kHz
         self.framerate, self.audio_signal = wav.read(self.audio_path)
@@ -44,6 +62,11 @@ class Data:
         self.labels_num_path = f"{H5_DIR}{self.stem}_labels_numeric.h5"
         self.data_norm_path = f"{H5_DIR}{self.stem}_data_normalized.h5"
         self.labels_num_32_path = f"{H5_DIR}{self.stem}_labels_numeric_32.h5"
+
+        self.tfrecord_path = f"{TFRECORD_DIR}{self.stem}.tfrecord"
+        self.tfrecord_shape = f"{TFRECORD_DIR}{self.stem}_shapes.json"
+
+        self.shape = None
 
         create_folder_if_not_exists(H5_DIR)
         create_folder_if_not_exists(TFRECORD_DIR)
@@ -61,13 +84,12 @@ class Data:
     def extraction_fbank(self) -> None:
         """
         Fbank feature extraction from the speech signal
-
-        :return:
+        :return: None
         """
         df = pd.DataFrame(np.empty((0, 120)))
 
         # Compute Mel-Fbanks features (including first and second derivatives)
-        fbank_feat = logfbank(self.audio_signal, samplerate=16000, nfilt=40, winlen=0.020, winstep=0.010)
+        fbank_feat = logfbank(self.audio_signal, samplerate=16_000, nfilt=40, winlen=Data.window, winstep=Data.step)
         first_derivative = np.gradient(fbank_feat)
         second_derivative = np.gradient(first_derivative[1])
 
@@ -76,7 +98,6 @@ class Data:
         df = pd.concat([df, frames])
 
         store_data = pd.HDFStore(self.parameters_path, 'w')
-
         store_data.append("custom", df)
         store_data.close()
 
@@ -90,23 +111,19 @@ class Data:
             list_phone = [line.replace("\n", "") for line in list_phone]
 
         # Clean raw data
-        list_phone.pop(-1)  # Because of bug in AHN/ALP/LEC file alignements
+        if list_phone[-1].split(" ")[0] == list_phone[-2].split(" ")[0]:
+            list_phone.pop(-1)  # Because of bug in AHN/ALP/LEC file alignments
+
         data = np.asarray([l.split(" ") for l in list_phone])
 
         # Replacing phonemes nn+yy by gn
-        prev = data[0][2]
-        for i in range(1, len(data) - 1):
-            transcrip = data[i][2]
-            if prev == 'nn' and transcrip == 'yy':
-                data[i - 1][2] = 'gn'
-                data[i][2] = 'gn'
-            prev = data[i][2]
+        for prev, curr in zip(data, data[1:]):
+            if prev[2] == 'nn' and curr[2] == 'yy':
+                prev[2] = curr[2] = 'gn'
 
-        # TODO End is confusing: it should be duration
-        df = pd.DataFrame(data[:, 2:], columns=['Start', 'End', 'Phone'])
+        df = pd.DataFrame(data, columns=['Start', 'End', 'Phone'])
         df['Start'] = df['Start'].astype(float)
         df['End'] = df['End'].astype(float)
-        df['End'] = df['Start'] + df['End']
         df['Phone'] = df['Phone'].astype(str)
         df['Segment_name'] = self.stem
 
@@ -114,19 +131,23 @@ class Data:
         gn_index = list(df[df.Phone == 'gn'].index)
         for i in range(0, len(gn_index), 2):
             df['End'][gn_index[i]] = df['End'][gn_index[i + 1]]
+
         for i in range(1, len(gn_index), 2):
             assert gn_index[i - 1] + 1 == gn_index[i]
             df = df.drop([gn_index[i]])
+
         df.reset_index(drop=True, inplace=True)
         ##***
 
         df = df.drop(df[df.Phone == "[new_sentence]"].index.values)
+
         df['Nb_frames'] = round((df.End - df.Start) * 100)
         df['Nb_frames'] = df['Nb_frames'].astype(int)
         df = df.drop(['Start', 'End'], axis=1)
+
         for index, row in df.iterrows():
             if row['Nb_frames'] != 0:
-                df = df._append([row] * row['Nb_frames'])
+                df = df._append([row] * row['Nb_frames'])  # TODO Maybe use a different array to store this!
 
         df.reset_index(level=0, inplace=True)
         df.rename(columns={'index': 'Seg'}, inplace=True)
@@ -152,6 +173,7 @@ class Data:
                       .apply(lambda x: x.reset_index(drop=True))
                       .rename_axis(index=['File', 'Frame']))  # to save each frame unique index
 
+        # TODO Investigate missing part of audio (last second is not present in the fbanks or transcription??)
         transcript = pd.read_hdf(self.transcriptions_path, key="custom", mode='r')
 
         final_data = pd.merge(parameters, transcript, how='inner', on=['Segment_name', 'Frame'])
@@ -179,35 +201,24 @@ class Data:
         """
         Convert labels to numeric
         """
-        phones = pd.read_csv(PHONES_CSV, sep=' ')
-        phones.columns = ['phone', 'class']
-        phones = phones.set_index(phones['class'])
-        phones = phones.drop('class', axis=1)
-        phones = phones.drop([1], axis=0)
-        phones = phones.reset_index(drop=True)
-        phones.loc[0] = 'pause'
-
         labels = pd.read_hdf(self.labels_path, key="custom", mode='r')
         lab = pd.DataFrame(labels)
-        dic = phones['phone'].to_dict()
-        dic = {y: x for x, y in dic.items()}
+
+        with open("data/numeric_phones.json", "r") as f:
+            dic = json.load(f)
+
         lab = lab.replace({"Phone": dic})
-        lab.loc[lab['Phone'] == 'in'] = 27
-        lab.loc[lab['Phone'] == 'oe'] = 8
         lab['Phone'] = lab['Phone'].astype(str)  # added to handle a pandas issue encountered with hdf5
 
         store_num = pd.HDFStore(self.labels_num_path, 'w')
         store_num.append("custom", lab)
         store_num.close()
 
+    # TODO Remove this, it is now useless
     def converting_labels_to_32(self):
         """Merge [oo&au / ee(oe)&eu] --> 31 classes + silence"""
         labels = pd.read_hdf(self.labels_num_path, key="custom", mode='r')
         labels['Phone'] = labels['Phone'].astype(int)
-        labels.loc[labels['Phone'] == 21] = 4
-        labels.loc[labels['Phone'] == 10] = 8
-        labels.loc[(10 < labels['Phone']) & (labels['Phone'] < 21)] = labels - 1
-        labels.loc[labels['Phone'] > 21] = labels - 2
 
         store = pd.HDFStore(self.labels_num_32_path, 'w')
         store.append("custom", labels)
@@ -219,36 +230,43 @@ class Data:
         dir_ = pd.read_hdf(self.data_path, key="custom", mode='r')
 
         for i in tqdm(range(dir_.index.values[0][0], dir_.index.values[-1][0] + 1)):
-            mean = np.mean(dir_.loc[i])
-            std = np.sqrt(np.mean((dir_.loc[i] - mean) ** 2))
+            mean = np.mean(dir_.loc[i], axis=0)
+            std = np.std(dir_.loc[i], axis=0)  # np.sqrt(np.mean((dir_.loc[i] - mean) ** 2))
             aux = (dir_.loc[i] - mean) / std
             aux['File'] = i
             data = pd.concat([data, aux])
 
-        parameters = (data.groupby(['File'], as_index=True)
-                      .apply(lambda x: x.reset_index(drop=True))  # to save each frame unique index
-                      .rename_axis(index=['File', 'Frame'])
-                      .drop(['File'], axis=1))
+        # parameters = (data.groupby(['File'], as_index=True)
+        #               .apply(lambda x: x.reset_index(drop=True))  # to save each frame unique index
+        #               .rename_axis(index=['File', 'Frame'])
+        #               .drop(['File'], axis=1))
+
+        Data_gb = data.groupby(['File'], as_index=True)
+        param = Data_gb.apply(lambda x: x.reset_index(drop=True))  # to save each frame unique index
+        param = param.rename_axis(index=['File', 'Frame'])
+        param = param.drop(columns=['File'])
+
+        # param is the same as in the notebook.
 
         store_data = pd.HDFStore(self.data_norm_path, 'w')
-        store_data.append("custom", parameters)
+        store_data.append("custom", param)
         store_data.close()
 
     def tfrecord_generation(self):
-        """TFrecord files generation"""
-        mydata = pd.read_hdf(self.data_norm_path, mode="r", key="custom")
-        mylab = pd.read_hdf(self.labels_num_32_path, mode="r", key="custom")
-        final = pd.read_hdf(self.final_path, mode="r", key="custom")
+        """
+        TFrecord files generation
+        """
+        normalized_data = pd.read_hdf(self.data_norm_path, mode="r", key="custom")
+        numeric_labels = pd.read_hdf(self.labels_num_32_path, mode="r", key="custom")
 
-        path = f"{TFRECORD_DIR}{self.stem}.tfrecord"
-
-        with tf.io.TFRecordWriter(str(path)) as writer:
-            for j in range(5, mydata.loc[0].shape[0] - 5):
-                X = (np.array(mydata.loc[0].iloc[j - 5:j + 6, :])).reshape(1, 11 * 120)
-                X = pd.DataFrame(X)
-                Y = np.array(mylab.loc[(0, j)])  # [:, None]
+        with tf.io.TFRecordWriter(self.tfrecord_path) as writer:
+            for j in range(5, normalized_data.loc[0].shape[0] - 5):
+                X = (np.array(normalized_data.loc[0].iloc[j - 5:j + 6, :])).reshape(1, 11 * 120)
+                X = pd.DataFrame(X)  # X is of size 120 * 11 !
+                Y = np.array(numeric_labels.loc[(0, j)])  # [:, None]
                 Y = pd.DataFrame(Y)
-                # create an item in the datset converted to the correct formats (float, int, byte)
+
+                # create an item in the dataset converted to the correct formats (float, int, byte)
                 example = serialize_example(
                     {
                         "label": {
@@ -261,32 +279,31 @@ class Data:
                         },
                     }
                 )
+
                 # write the defined example into the dataset
                 writer.write(example)
 
-        # The shape of tfrecords files
-        dict_shapes = {}
-        for l in set(final['Segment_name']):
-            id_l = l.split('-')[0]
-            dict_shapes[id_l] = [final[final['Segment_name'] == l].shape[0] - 10,
-                                 final[final['Segment_name'] == l].shape[0] - 10]
+            self.shape = normalized_data.loc[0].shape[0] - 10  # -10 because of the padding effect
 
-        with open(f"{TFRECORD_DIR}{self.stem}_shapes.json", 'w') as fp:
-            json.dump(dict_shapes, fp)
+        # TODO Adapt shape handling when using different sub-corpus in one h5 file!
 
+    # TODO Fix batch size handling when building tfrecords too
     def get_fbank_labels(self) -> tf.data.Iterator:
-
         dataset = (
-            tf.data.Dataset.list_files(self.data_norm_path, shuffle=False)
+            tf.data.Dataset.list_files(self.tfrecord_path, shuffle=False)
             .interleave(tf.data.TFRecordDataset, block_length=1, num_parallel_calls=1, cycle_length=1)
             .map(parser_test, num_parallel_calls=1)
-            # .batch(bs)
+            .batch(self.compute_batch_size())
         )
 
         return tf.compat.v1.data.make_one_shot_iterator(dataset)
 
-    def get_audio_frames_number(self):
-        return (len(self.audio_signal) // 16 - 5) // 10
+    def get_frames_count(self) -> int:
+        # return (len(self.audio_signal) // 16 - 5) // 10 - 10 - 2
+        return self.shape
+
+    def compute_batch_size(self) -> int:
+        return get_batch_size(self.get_frames_count())
 
 
 def _float_feature(value):
@@ -300,6 +317,4 @@ def _int64_feature(value):
 
 
 if __name__ == '__main__':
-    data = Data("I0MA0007")
-    print(data.get_audio_frames_number())
-
+    print(Data("I0MB0841").preprocess())

@@ -4,3 +4,5 @@ venv/
 dsit/audio/
 dsit/h5data/
 dsit/tfrecords/
+dsit/plots/
+dsit/tests/

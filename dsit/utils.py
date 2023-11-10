@@ -1,5 +1,6 @@
 from pathlib import Path
 import tensorflow as tf
+import pandas as pd
 import math
 import os
 
@@ -23,7 +24,6 @@ def parser_test(record):
     this function defines what the labels and data look like
     for your labeled data.
     """
-
     # the 'features' here include your normal data feats along
     # with the label for that data
     features = {
@@ -35,21 +35,15 @@ def parser_test(record):
 
     # some conversion and casting to get from bytes to floats and ints
     fbanks = tf.convert_to_tensor(parsed['fbank'], tf.float32)
-    # fbanks=tf.reshape(fbanks, [11,40,3])
-
-    # fbanks=tf.reshape(fbanks, [11,120])
-    # print(fbanks)
     label = tf.cast(parsed['label'], tf.int64)
-    # print(label)
-    # since you can have multiple kinds of feats, you return a dictionary for feats
-    # but only an int for the label
+
     return {'Conv1_input': fbanks}, label
 
 
 def check_file_exists(path: Path, extension: str):
     if not (path.exists() and path.suffix.lower() == "." + extension.lower()):
-        raise Exception(f"`{path}` does not exist, or it isn't a .{extension} file. "
-                        "Please check this argument.")
+        raise FileNotFoundError(f"`{path}` does not exist, or it isn't a .{extension} file. "
+                                "Please check this argument.")
 
 
 def create_folder_if_not_exists(folder: str):
@@ -98,3 +92,17 @@ def serialize_example(example):
         dset_item[feature] = example[feature]["_type"](example[feature]["data"])
         example_proto = tf.train.Example(features=tf.train.Features(feature=dset_item))
     return example_proto.SerializeToString()
+
+
+def generate_lbl_from_seg(file_path: Path):
+    df = pd.read_csv(file_path, sep=" ", header=None, names=["Patient", "Index", "Start", "Duration", "Phoneme"])
+    # Adding end column
+    df["End"] = round(df["Start"] + df["Duration"], 2) - 0.01  # lbl files end and next start always have a 0.01 gap.
+    # Replacing "pause" by "[pause]"
+    df = df.replace({"Phoneme": {"pause": "[pause]"}})
+    # Saving lbl file
+    df.to_csv(file_path.with_suffix(".lbl"), index=False, sep=" ", header=False, columns=["Start", "End", "Phoneme"])
+
+
+if __name__ == '__main__':
+    generate_lbl_from_seg(Path("audio/I0MB0844.seg"))
