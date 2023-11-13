@@ -33,7 +33,12 @@ class Model(ABC):
     def predict(self, data: Data) -> None:
         pass
 
+    @abstractmethod
     def get_confusion_matrix(self) -> Dict:
+        pass
+
+    @abstractmethod
+    def get_hidden_activation_values(self, data: Data) -> Dict:
         pass
 
 
@@ -43,19 +48,17 @@ class CNN(Model):
         super().__init__(model_path, debug)
 
         self.model = tf.saved_model.load(self.model_path).signatures['serving_default']
+        self.keras_model = self.build_model()
         self.cm = None
         self.data_name = None
         self.labels = None
         self.predictions = None
 
-    def load_model(self) -> bool:
-        pass
-
-    def apply_model(self, *frames):
-        pass
+        self.layer_identifiers = ['activation_1', 'activation_2']
+        self.layer_names = ['layer2', 'layer3']
 
     def predict(self, data: Data):
-        # TODO Fix this batch size handling
+        # TODO Check this batch size handling works (also on the Data side!)
         shape = data.get_frames_count()
         batch_size = data.compute_batch_size()
 
@@ -94,10 +97,16 @@ class CNN(Model):
         idx_existing = list(set(self.labels) | set(self.predictions))
         label_names_existing = list(np.array(Model.label_names)[idx_existing])
 
+        # Adding lines for phonemes that were not present in the input audio
         for i in range(len(Model.label_names_organized)):
             if Model.label_names_organized[i] not in label_names_existing:
                 self.cm = np.insert(self.cm, i, 0.0, axis=1)
                 self.cm = np.insert(self.cm, i, 0.0, axis=0)
+
+        # Set 0 lines to NaN
+        for i in range(self.cm.shape[0]):
+            if np.count_nonzero(self.cm[i, :]) == 0:
+                self.cm[i, :] = np.nan
 
     def plot_confusion_matrix(self, savefig=True, file='', cmap=plt.cm.pink_r):
         """
@@ -138,15 +147,71 @@ class CNN(Model):
             "matrix": self.cm.tolist()
         }
 
+    def get_hidden_activation_values(self, data: Data) -> Dict:
+        shape = data.get_frames_count()
+        batch_size = data.compute_batch_size()
+
+        # Getting the whole input data
+        input_data = np.empty((shape, 11, 120, 1), dtype=float)
+        iterator = data.get_fbank_labels()
+        for i in tqdm(range(shape // batch_size)):
+            batch_fbanks, _ = iterator.get_next()
+            input_data[i * batch_size:(i + 1) * batch_size] = batch_fbanks['Conv1_input']
+
+        # Retrieving hidden activations
+        output = {}
+        for layer, name in zip(self.layer_identifiers, self.layer_names):
+            intermediate_layer_model = tf.keras.Model(inputs=self.keras_model.input,
+                                                      outputs=self.keras_model.get_layer(layer).output)
+            output[name] = intermediate_layer_model(input_data)
+
+        return output
+
+    def build_model(self):
+        model = tf.keras.models.Sequential()
+
+        # the input is 11 consecutive frames
+        input_shape = (11, 120, 1)
+        nb_dense = 3
+        dropout_rate = 0.4
+        output_shape = 32
+        regularizer = tf.keras.regularizers.l2(0.001)
+
+        model.add(
+            tf.keras.layers.Conv2D(32, kernel_size=(3, 5), activation='relu', input_shape=input_shape, name='Conv1',
+                                   kernel_regularizer=regularizer))
+        model.add(tf.keras.layers.MaxPooling2D(pool_size=(1, 3), name='Pool1'))
+        model.add(tf.keras.layers.Conv2D(64, kernel_size=(3, 5), activation='relu', name='Conv2',
+                                         kernel_regularizer=regularizer))
+        model.add(tf.keras.layers.MaxPooling2D(pool_size=(1, 2), name='Pool2'))
+        model.add(tf.keras.layers.Flatten())
+
+        for i in range(1, nb_dense + 1):
+            model.add(tf.keras.layers.Dense(1024, kernel_regularizer=regularizer))
+            model.add(tf.keras.layers.Activation('relu'))
+            model.add(tf.keras.layers.Dropout(dropout_rate))
+
+        model.add(tf.keras.layers.Dense(output_shape, activation='softmax'))
+
+        model.load_weights(f"{self.model_path}/variables/variables")
+
+        if self.debug:
+            print(model.summary())
+
+        return model
+
 
 if __name__ == '__main__':
     audios = ["I0MB0843", "I0MB0841", "PME20-TXT-16k_mono", "I0MA0007", "I0MA0008",
               "I0MB0840", "I0MB0842", "I0MB0843", "I0MB0844", "I0MB0845"]
 
+    cnn = CNN("models/cnn", debug=True)
     for audio in audios:
-        cnn = CNN("models/cnn", debug=True)
-        data = Data(audio)
-        data.preprocess()
+        preprocessed_data = Data(audio)
+        preprocessed_data.preprocess()
 
-        cnn.predict(data)
-        cnn.plot_confusion_matrix()
+        # cnn.predict(data)
+        # cnn.plot_confusion_matrix()
+
+        print(cnn.get_hidden_activation_values(preprocessed_data))
+        break

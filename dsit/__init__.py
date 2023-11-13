@@ -4,4 +4,4 @@ DATA_DIR = "data/"
 PLOTS_DIR = "plots/"
 
 TFRECORD_DIR = "tfrecords/"
-PHONES_CSV = DATA_DIR + "phones.csv"
+PHONES_JSON = DATA_DIR + "numeric_phones.json"

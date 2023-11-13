@@ -13,23 +13,28 @@ import json
 
 from dsit.utils import check_file_exists, create_folder_if_not_exists, parser_test, serialize_example, get_batch_size, \
     generate_lbl_from_seg
-from dsit import H5_DIR, AUDIO_DIR, PHONES_CSV, TFRECORD_DIR
+from dsit import H5_DIR, AUDIO_DIR, TFRECORD_DIR, PHONES_JSON
 
 
+# TODO Avoid saving intermediary h5 files by chaining functions
 # TODO Only execute this if audio has changed, and has not been seen before, find a caching technique for this.
 # TODO Add better messages while data is being processed.
+# TODO Make it so each function returns what it computes. Each function calls the ones it needs.
 
 
 class Data:
     window = 0.020  # ms
     step = 0.010  # ms
 
-    def __init__(self, file_stem: str, debug=False):
+    def __init__(self, file_stem: str, debug=False, save=True):
         """
         :param file_stem: Name of the file before the extension (abc.wav => stem = "abc")
+        :param save: Whether to save an h5 file or not.
         """
-        self.debug = debug
+        # TODO Always save tfrecord, and keep a cache of whether we have already analysed such file
         self.stem = file_stem
+        self.save = save
+        self.debug = debug
 
         # Checking audio file exists
         self.audio_path = Path(f"{AUDIO_DIR}{file_stem}.wav")
@@ -62,6 +67,15 @@ class Data:
         self.labels_num_path = f"{H5_DIR}{self.stem}_labels_numeric.h5"
         self.data_norm_path = f"{H5_DIR}{self.stem}_data_normalized.h5"
         self.labels_num_32_path = f"{H5_DIR}{self.stem}_labels_numeric_32.h5"
+
+        self.data = None
+        self.parameters = None
+        self.labels = None
+        self.final = None
+        self.transcriptions = None
+        self.labels_num = None
+        self.data_norm = None
+        self.labels_num_32 = None
 
         self.tfrecord_path = f"{TFRECORD_DIR}{self.stem}.tfrecord"
         self.tfrecord_shape = f"{TFRECORD_DIR}{self.stem}_shapes.json"
@@ -97,14 +111,16 @@ class Data:
         frames['Segment_name'] = self.stem
         df = pd.concat([df, frames])
 
-        store_data = pd.HDFStore(self.parameters_path, 'w')
-        store_data.append("custom", df)
-        store_data.close()
+        if self.save:
+            store_data = pd.HDFStore(self.parameters_path, 'w')
+            store_data.append("custom", df)
+            store_data.close()
+
+        #self.parameters = df
 
     def prepare_transcription(self):
         """Preprocessing phoneme alignment files"""
         dataframe = pd.DataFrame()
-        store_data = pd.HDFStore(self.transcriptions_path, 'w')
 
         with open(self.phonemes_path, "r") as f:
             list_phone = f.readlines()
@@ -161,8 +177,12 @@ class Data:
 
         dataframe = pd.concat([dataframe, df1_])
 
-        store_data.append("custom", dataframe)
-        store_data.close()
+        if self.save:
+            store_data = pd.HDFStore(self.transcriptions_path, 'w')
+            store_data.append("custom", dataframe)
+            store_data.close()
+
+        # self.transcriptions = dataframe
 
     def merge_fbank_alignment(self):
         """
@@ -180,22 +200,29 @@ class Data:
         final_data_gb = final_data.groupby(['Segment_name'], as_index=False)
         final_data = final_data_gb.apply(lambda x: x.reset_index(drop=True))
 
-        store_data = pd.HDFStore(self.final_path, 'w')
-        store_data.append("custom", final_data)
-        store_data.close()
+        if self.save:
+            store_data = pd.HDFStore(self.final_path, 'w')
+            store_data.append("custom", final_data)
+            store_data.close()
+
+        # self.final = final_data
 
     def split_data_labels(self):
         """Split LABELS  DATA H5DATA"""
         data = (pd.read_hdf(self.final_path, key="custom", mode='r')
                 .drop(['Frame_rank', 'Segment_name', 'Seg'], axis=1))
 
-        store1 = pd.HDFStore(self.data_path, 'w')
-        store1.append("custom", data.iloc[:, :120])
-        store1.close()
+        if self.save:
+            store1 = pd.HDFStore(self.data_path, 'w')
+            store1.append("custom", data.iloc[:, :120])
+            store1.close()
 
-        store2 = pd.HDFStore(self.labels_path, 'w')
-        store2.append("custom", data.iloc[:, 120])
-        store2.close()
+            store2 = pd.HDFStore(self.labels_path, 'w')
+            store2.append("custom", data.iloc[:, 120])
+            store2.close()
+
+        # self.data = data.iloc[:, :120]
+        self.labels = data.iloc[:, 120]
 
     def converting_labels_to_numeric(self):
         """
@@ -204,15 +231,18 @@ class Data:
         labels = pd.read_hdf(self.labels_path, key="custom", mode='r')
         lab = pd.DataFrame(labels)
 
-        with open("data/numeric_phones.json", "r") as f:
+        with open(PHONES_JSON, "r") as f:
             dic = json.load(f)
 
         lab = lab.replace({"Phone": dic})
         lab['Phone'] = lab['Phone'].astype(str)  # added to handle a pandas issue encountered with hdf5
 
-        store_num = pd.HDFStore(self.labels_num_path, 'w')
-        store_num.append("custom", lab)
-        store_num.close()
+        if self.save:
+            store_num = pd.HDFStore(self.labels_num_path, 'w')
+            store_num.append("custom", lab)
+            store_num.close()
+
+        # self.labels_num = lab
 
     # TODO Remove this, it is now useless
     def converting_labels_to_32(self):
@@ -220,9 +250,12 @@ class Data:
         labels = pd.read_hdf(self.labels_num_path, key="custom", mode='r')
         labels['Phone'] = labels['Phone'].astype(int)
 
-        store = pd.HDFStore(self.labels_num_32_path, 'w')
-        store.append("custom", labels)
-        store.close()
+        if self.save:
+            store = pd.HDFStore(self.labels_num_32_path, 'w')
+            store.append("custom", labels)
+            store.close()
+
+        self.labels_num_32 = labels
 
     def normalization_fbank_per_segment(self):
         """Mean Variance Normalization of the filterbank speech features per segment"""
@@ -248,9 +281,12 @@ class Data:
 
         # param is the same as in the notebook.
 
-        store_data = pd.HDFStore(self.data_norm_path, 'w')
-        store_data.append("custom", param)
-        store_data.close()
+        if self.save:
+            store_data = pd.HDFStore(self.data_norm_path, 'w')
+            store_data.append("custom", param)
+            store_data.close()
+
+        # self.data_norm = param
 
     def tfrecord_generation(self):
         """

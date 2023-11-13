@@ -1,8 +1,10 @@
+from typing import Dict
+
 from dsit.model import CNN, Model
 from dsit.preprocessing import Data
 
 
-def process_audio(file_stem: str, model_path="models/cnn"):
+def process_audio(file_stem: str, model_path="models/cnn") -> Dict:
     # Load model
     model: Model = CNN(model_path, debug=False)
     data = Data(file_stem)
@@ -19,5 +21,5 @@ def process_audio(file_stem: str, model_path="models/cnn"):
 
 
 if __name__ == '__main__':
-    # TODO Add arhgument parser
-    process_audio("asdasd")
+    # TODO Add argument parser
+    print(process_audio("I0MB0843"))
