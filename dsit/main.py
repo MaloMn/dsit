@@ -18,7 +18,7 @@ def process_audio(file_stem: str, model_path="models/cnn") -> Dict:
     return {
         "score": 10,
         "confusion_matrix": model.get_confusion_matrix(),
-        "anps": anps.get_anps_scores_sondes()
+        "anps": anps.get_anps_scores()
     }
 
 
