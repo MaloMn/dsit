@@ -157,6 +157,10 @@ class Data:
 
         df = df.drop(df[df.Phone == "[new_sentence]"].index.values)
 
+        # Check if end times and next start times are the same*
+        if df.Start[1:].to_list() == df.End[:len(df.End) - 1].to_list():
+            df.End = df.End - 0.01
+
         df['Nb_frames'] = round((df.End - df.Start) * 100)
         df['Nb_frames'] = df['Nb_frames'].astype(int)
         df = df.drop(['Start', 'End'], axis=1)

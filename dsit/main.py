@@ -1,5 +1,6 @@
 from typing import Dict
 
+from dsit.anps import ANPS
 from dsit.model import CNN, Model
 from dsit.preprocessing import Data
 
@@ -12,11 +13,12 @@ def process_audio(file_stem: str, model_path="models/cnn") -> Dict:
 
     # Apply model
     model.predict(data)
+    anps = ANPS(model, data)
 
     return {
         "score": 10,
         "confusion_matrix": model.get_confusion_matrix(),
-        "anps": {}
+        "anps": anps.get_anps_scores_sondes()
     }
 
 

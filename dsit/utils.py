@@ -1,7 +1,9 @@
 from pathlib import Path
+from typing import Dict
 import tensorflow as tf
 import pandas as pd
 import math
+import json
 import os
 
 
@@ -102,6 +104,11 @@ def generate_lbl_from_seg(file_path: Path):
     df = df.replace({"Phoneme": {"pause": "[pause]"}})
     # Saving lbl file
     df.to_csv(file_path.with_suffix(".lbl"), index=False, sep=" ", header=False, columns=["Start", "End", "Phoneme"])
+
+
+def get_json(path: str) -> Dict:
+    with open(path, "r") as f:
+        return json.load(f)
 
 
 if __name__ == '__main__':
