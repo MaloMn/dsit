@@ -40,8 +40,6 @@ class ANPS:
             # Dividing by normalization factors (they correspond to the maximum reached per neuron on BREF-Int)
             output[layer] = output[layer] / np.array(ANPS.normalization_factors[layer])
 
-            print(output[layer].shape)
-
         return output
 
     def correct_labels_with_30_phonemes(self) -> None:
@@ -116,4 +114,6 @@ if __name__ == '__main__':
     data.preprocess()
     anps = ANPS(CNN("models/cnn"), data)
 
+    # TODO Fix bug encountered in confusion matrix (rows misordered)
+    # TODO Fix pandas warning
     print(anps.get_anps_scores())
