@@ -146,7 +146,7 @@ class Data:
         # *** Rectify th gn duration
         gn_index = list(df[df.Phone == 'gn'].index)
         for i in range(0, len(gn_index), 2):
-            df['End'][gn_index[i]] = df['End'][gn_index[i + 1]]
+            df.at[gn_index[i], 'End'] = df.at[gn_index[i + 1], 'End']
 
         for i in range(1, len(gn_index), 2):
             assert gn_index[i - 1] + 1 == gn_index[i]

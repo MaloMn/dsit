@@ -14,3 +14,8 @@ PHONES_PER_NEURON = DATA_DIR + "phonemes_per_neuron.json"
 
 TFRECORD_DIR = DSIT_FOLDER + "tfrecords/"
 PHONES_JSON = DATA_DIR + "numeric_phones.json"
+
+OUTPUT_DIR = "output/"
+
+CACHE_DIR = "cache/"
+CACHE_JSON = CACHE_DIR + "cache.json"
