@@ -102,7 +102,6 @@ class CNN(Model):
 
     def compute_confusion_matrix(self):
         self.cm = confusion_matrix(self.labels, self.predictions, normalize="true")
-        print(self.cm)
 
         idx_existing = list(set(self.labels) | set(self.predictions))
         label_names_existing = list(np.array(Model.label_names)[idx_existing])
