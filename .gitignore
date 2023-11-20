@@ -1,7 +1,10 @@
 venv/
 .idea/
 **/__pycache__/
-dsit/audio/
+dsit/audio/*.lbl
+dsit/audio/*.seg
+dsit/audio/*.wav
+dsit/audio/*/
 dsit/h5data/
 dsit/tfrecords/
 dsit/plots/
