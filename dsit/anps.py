@@ -14,13 +14,11 @@ class ANPS:
     bref_median_activation_per_neuron_per_phoneme = get_json(BREF_MEDIAN_ACTIVATIONS)
     numeric_phones = get_json(NUMERIC_PHONES)
     phonetic_trait_phonemes = get_json(PHONETIC_TRAIT_PHONES)
-    dead_neurons = get_json(DEAD_NEURONS)
-    normalization_factors = get_json(NORMALIZATION_FACTORS)
     phonemes_per_neuron = get_json(PHONES_PER_NEURON)
 
     def __init__(self, model: Model, data: Data):
-        self.activations = model.get_hidden_activation_values(data)
-        self.normalized_activations = self._get_normalized_activations()
+        # Normalization happens in the CNN object
+        self.normalized_activations = model.get_hidden_activation_values(data)
 
         self.phonemes_list = list(ANPS.bref_median_activation_per_neuron_per_phoneme["1"].keys())
 
@@ -31,16 +29,6 @@ class ANPS:
         self.phonemes_in_data = np.unique(self.labels)
 
         self.current_median_activations = self._get_current_median_activations()
-
-    def _get_normalized_activations(self):
-        output = {}
-        for layer in ["layer2", "layer3"]:
-            # Removing dead neurons
-            output[layer] = np.delete(self.activations[layer], ANPS.dead_neurons[layer], 1)
-            # Dividing by normalization factors (they correspond to the maximum reached per neuron on BREF-Int)
-            output[layer] = output[layer] / np.array(ANPS.normalization_factors[layer])
-
-        return output
 
     def correct_labels_with_30_phonemes(self) -> None:
         """

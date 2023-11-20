@@ -41,5 +41,5 @@ class Cache:
     def _build_key(**keys) -> int:
         framerate, audio_signal = wav.read(Path(f"{AUDIO_DIR}{keys['name']}.wav"))
 
-        print(hash(framerate), hash(audio_signal.tostring()), hash(tuple(sorted(keys.values()))))
+        print(hash(audio_signal.tostring()), hash(tuple(sorted(keys.values()))))
         return hash((framerate, audio_signal.tostring(), tuple(sorted(keys.values()))))

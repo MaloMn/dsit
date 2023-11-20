@@ -8,8 +8,9 @@ from sklearn.metrics import balanced_accuracy_score, confusion_matrix
 import matplotlib.pyplot as plt
 from typing import Dict
 
-from dsit import PLOTS_DIR
+from dsit import PLOTS_DIR, DEAD_NEURONS, NORMALIZATION_FACTORS, PHONES_PER_NEURON
 from dsit.preprocessing import Data
+from dsit.utils import get_json
 
 
 class Model(ABC):
@@ -41,14 +42,22 @@ class Model(ABC):
     def get_hidden_activation_values(self, data: Data) -> Dict:
         pass
 
+    @abstractmethod
+    def get_interpretable_activation_values(self, data: Data) -> Dict:
+        pass
+
 
 class CNN(Model):
+
+    dead_neurons = get_json(DEAD_NEURONS)
+    normalization_factors = get_json(NORMALIZATION_FACTORS)
+    phonemes_per_neuron = get_json(PHONES_PER_NEURON)
 
     def __init__(self, model_path, debug=False):
         super().__init__(model_path, debug)
 
         self.model = tf.saved_model.load(self.model_path).signatures['serving_default']
-        self.keras_model = self.build_model()
+        self.keras_model = self._build_model()
         self.cm = None
         self.data_name = None
         self.labels = None
@@ -165,9 +174,19 @@ class CNN(Model):
                                                       outputs=self.keras_model.get_layer(layer).output)
             output[name] = intermediate_layer_model(input_data)
 
+        return self._normalize_activation_values(output)
+
+    def _normalize_activation_values(self, activation_values):
+        output = {}
+        for layer in self.layer_names:
+            # Removing dead neurons
+            output[layer] = np.delete(activation_values[layer], CNN.dead_neurons[layer], 1)
+            # Dividing by normalization factors (they correspond to the maximum reached per neuron on BREF-Int)
+            output[layer] = output[layer] / np.array(CNN.normalization_factors[layer])
+
         return output
 
-    def build_model(self):
+    def _build_model(self):
         model = tf.keras.models.Sequential()
 
         # the input is 11 consecutive frames
@@ -200,12 +219,28 @@ class CNN(Model):
 
         return model
 
+    # TODO Improve the separation of content (ANPS should not be aware of CNN-specific information!
+    # TODO Idea, maybe setup CI/CD to make sure same results are obtained, regardless of architecture?
+    def get_interpretable_activation_values(self, data: Data) -> Dict:
+        activations = self.get_hidden_activation_values(data)
+
+        neuron_list = {
+            'layer2': [int(neuron) for neuron in CNN.phonemes_per_neuron.keys() if int(neuron) < 1024],
+            'layer3': [int(neuron) - 1024 for neuron in CNN.phonemes_per_neuron.keys() if int(neuron) >= 1024]
+        }
+
+        for layer in self.layer_names:
+            # For each layer, only keep rows of interpretable neurons
+            activations[layer] = activations[layer][:, neuron_list[layer]]
+
+        return activations
+
 
 if __name__ == '__main__':
     audios = ["I0MB0843", "I0MB0841", "PME20-TXT-16k_mono", "I0MA0007", "I0MA0008",
               "I0MB0840", "I0MB0842", "I0MB0843", "I0MB0844", "I0MB0845"]
 
-    cnn = CNN("models/cnn", debug=True)
+    cnn = CNN("dsit/models/cnn", debug=False)
     for audio in audios:
         preprocessed_data = Data(audio)
         preprocessed_data.preprocess()
@@ -213,5 +248,6 @@ if __name__ == '__main__':
         # cnn.predict(data)
         # cnn.plot_confusion_matrix()
 
-        print(cnn.get_hidden_activation_values(preprocessed_data))
+        # print(cnn.get_hidden_activation_values(preprocessed_data))
+        print(cnn.get_interpretable_activation_values(preprocessed_data))
         break

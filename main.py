@@ -3,10 +3,11 @@ import argparse
 
 from dsit.anps import ANPS
 from dsit import OUTPUT_DIR
-from dsit.cache import Cache
 from dsit.model import CNN, Model
 from dsit.preprocessing import Data
 from dsit.utils import create_folder_if_not_exists
+from dsit.intelligibility import Intelligibility
+# from dsit.cache import Cache
 
 
 def analyse_audio(file_stem: str, model_path="dsit/models/cnn") -> dict[str, int | dict[str, dict[str, float]] | dict]:
@@ -21,13 +22,15 @@ def analyse_audio(file_stem: str, model_path="dsit/models/cnn") -> dict[str, int
     model.predict(data)
     anps = ANPS(model, data)
 
+    # Get intelligbility
+    intelligibility = Intelligibility(model, data)
+
     output = {
-            "score": 10,
+            "score": intelligibility.get_score(),
             "confusion_matrix": model.get_confusion_matrix(),
             "anps": anps.get_anps_scores()
         }
 
-    # TODO implementing caching system here!
     with open(f"{OUTPUT_DIR}{file_stem}.json", "w+") as f:
         json.dump(output, f)
 
