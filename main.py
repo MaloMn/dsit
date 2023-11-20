@@ -43,7 +43,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("name")
     parser.add_argument("-m", "--model", default="dsit/models/cnn")
     parser.add_argument("-a", "--action", default="all")
-    parser.add_argument('--no-cache', action='store_true')
+    # parser.add_argument('--no-cache', action='store_true')
     # TODO Add a method to generate confusion matrix, but don't merge it on main
     # TODO Add a argument to switch between available functions
 
