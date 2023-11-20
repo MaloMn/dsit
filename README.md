@@ -19,6 +19,3 @@ python main.py "file_stem" (--model "dsit/models/cnn" --action "all")
 > - `dsit/audio/patient_1.wav`
 > - `dsit/audio/patient_1.lbl`  
 > In this case, the file stem is "patient_1"
-
-    parser.add_argument("-m", "--model", default="dsit/models/cnn")
-    parser.add_argument("-a", "--action", default="all")
