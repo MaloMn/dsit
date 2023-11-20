@@ -102,9 +102,14 @@ class CNN(Model):
 
     def compute_confusion_matrix(self):
         self.cm = confusion_matrix(self.labels, self.predictions, normalize="true")
+        print(self.cm)
 
         idx_existing = list(set(self.labels) | set(self.predictions))
         label_names_existing = list(np.array(Model.label_names)[idx_existing])
+
+        # Use the specified labels order to link current cm layout to organized layout
+        new_order = [label_names_existing.index(label) for label in Model.label_names_organized if label in label_names_existing]
+        self.cm = self.cm[:, new_order][new_order, :]
 
         # Adding lines for phonemes that were not present in the input audio
         for i in range(len(Model.label_names_organized)):
@@ -237,7 +242,7 @@ class CNN(Model):
 
 
 if __name__ == '__main__':
-    audios = ["I0MB0843", "I0MB0841", "PME20-TXT-16k_mono", "I0MA0007", "I0MA0008",
+    audios = ["PME20-TXT-16k_mono", "CCM-002595-01_L01", "I0MB0843", "I0MB0841", "I0MA0007", "I0MA0008",
               "I0MB0840", "I0MB0842", "I0MB0843", "I0MB0844", "I0MB0845"]
 
     cnn = CNN("dsit/models/cnn", debug=False)
@@ -245,9 +250,9 @@ if __name__ == '__main__':
         preprocessed_data = Data(audio)
         preprocessed_data.preprocess()
 
-        # cnn.predict(data)
-        # cnn.plot_confusion_matrix()
+        cnn.predict(preprocessed_data)
+        cnn.plot_confusion_matrix()
 
         # print(cnn.get_hidden_activation_values(preprocessed_data))
-        print(cnn.get_interpretable_activation_values(preprocessed_data))
+        # print(cnn.get_interpretable_activation_values(preprocessed_data))
         break
