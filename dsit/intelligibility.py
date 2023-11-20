@@ -1,7 +1,3 @@
-from utils import load_audio, load_phonemes, load_model
-from model import CNN
-from typing import Dict, List, Union
-
 from dsit.model import Model
 from dsit.preprocessing import Data
 
