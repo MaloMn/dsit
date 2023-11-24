@@ -10,7 +10,7 @@ from dsit.intelligibility import Intelligibility
 # from dsit.cache import Cache
 
 
-def analyse_audio(file_stem: str, model_path="dsit/models/cnn") -> dict[str, int | dict[str, dict[str, float]] | dict]:
+def analyse_audio(file_stem: str, model_path="dsit/models/cnn"):
     create_folder_if_not_exists(OUTPUT_DIR)
 
     # Load model
@@ -46,6 +46,7 @@ def parse_arguments() -> argparse.Namespace:
     # parser.add_argument('--no-cache', action='store_true')
     # TODO Add a method to generate confusion matrix, but don't merge it on main
     # TODO Add a argument to switch between available functions
+    # TODO Also make it possible to load audio and phonemes from anywhere!
 
     return parser.parse_args()
 

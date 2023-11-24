@@ -99,7 +99,7 @@ def serialize_example(example):
 def generate_lbl_from_seg(file_path: Path):
     df = pd.read_csv(file_path, sep=" ", header=None, names=["Patient", "Index", "Start", "Duration", "Phoneme"])
     # Adding end column
-    df["End"] = round(df["Start"] + df["Duration"], 2) - 0.01  # lbl files end and next start always have a 0.01 gap.
+    df["End"] = round(df["Start"] + df["Duration"] - 0.01, 2)  # lbl files end and next start always have a 0.01 gap.
     # Replacing "pause" by "[pause]"
     df = df.replace({"Phoneme": {"pause": "[pause]"}})
     # Saving lbl file
