@@ -63,4 +63,3 @@ class Intelligibility:
 if __name__ == '__main__':
     pass
 
-# DATA=pd.DataFrame(np.array(EMBED[j*dur*100:(j+1)*dur*100]).reshape(1,dur*100*EMBED.shape[1]))
