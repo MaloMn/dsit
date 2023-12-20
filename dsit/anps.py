@@ -1,8 +1,7 @@
 from typing import Dict
 import numpy as np
 
-from dsit import INTERPRETABLE_NEURONS, BREF_MEDIAN_ACTIVATIONS, NUMERIC_PHONES, PHONETIC_TRAIT_PHONES, DEAD_NEURONS, \
-    NORMALIZATION_FACTORS, PHONES_PER_NEURON
+from dsit import INTERPRETABLE_NEURONS, BREF_MEDIAN_ACTIVATIONS, NUMERIC_PHONES, PHONETIC_TRAIT_PHONES, PHONES_PER_NEURON
 from dsit.model import Model
 from dsit.preprocessing import Data
 from dsit.utils import get_json
@@ -18,7 +17,7 @@ class ANPS:
 
     def __init__(self, model: Model, data: Data):
         # Normalization happens in the CNN object
-        self.normalized_activations = model.get_hidden_activation_values(data)
+        self.normalized_activations = model.normalize_activation_values(model.get_hidden_activation_values(data))
 
         self.phonemes_list = list(ANPS.bref_median_activation_per_neuron_per_phoneme["1"].keys())
 

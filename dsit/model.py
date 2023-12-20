@@ -161,6 +161,7 @@ class CNN(Model):
         }
 
     def get_hidden_activation_values(self, data: Data) -> Dict:
+        # TODO Save that in model with variable so that it is not recomputed the second time!
         shape = data.get_frames_count()
         batch_size = data.compute_batch_size()
 
@@ -176,18 +177,26 @@ class CNN(Model):
         for layer, name in zip(self.layer_identifiers, self.layer_names):
             intermediate_layer_model = tf.keras.Model(inputs=self.keras_model.input,
                                                       outputs=self.keras_model.get_layer(layer).output)
-            output[name] = intermediate_layer_model(input_data)
+            output[name] = intermediate_layer_model(input_data).numpy()
+            # print(type(intermediate_layer_model(input_data)))
+            # np.save(name, intermediate_layer_model(input_data))
 
-        return self._normalize_activation_values(output)
+        return self._remove_dead_neurons(output)
 
-    def _normalize_activation_values(self, activation_values):
+    def _remove_dead_neurons(self, activation_values: Dict) -> Dict:
+        # TODO Maybe to that in place to use less memory?
         output = {}
         for layer in self.layer_names:
             # Removing dead neurons
             output[layer] = np.delete(activation_values[layer], CNN.dead_neurons[layer], 1)
-            # Dividing by normalization factors (they correspond to the maximum reached per neuron on BREF-Int)
-            output[layer] = output[layer] / np.array(CNN.normalization_factors[layer])
+        return output
 
+    def normalize_activation_values(self, activation_values: Dict) -> Dict:
+        # TODO Maybe do that in place to use less memory?
+        output = {}
+        for layer in self.layer_names:
+            # Dividing by normalization factors (they correspond to the maximum reached per neuron on BREF-Int)
+            output[layer] = activation_values[layer] / np.array(CNN.normalization_factors[layer])
         return output
 
     def _build_model(self):
@@ -233,15 +242,18 @@ class CNN(Model):
             'layer3': [int(neuron) - 1024 for neuron in CNN.phonemes_per_neuron.keys() if int(neuron) >= 1024]
         }
 
+        embeddings = get_json("dsit/data/embedding_idx_set.json")
+
         for layer in self.layer_names:
             # For each layer, only keep rows of interpretable neurons
-            activations[layer] = activations[layer][:, neuron_list[layer]]
+            activations[layer] = activations[layer][:, embeddings[layer]]
+            np.save(layer + '.npy', activations[layer])
 
         return activations
 
 
 if __name__ == '__main__':
-    audios = ["PME20-TXT-16k_mono", "CCM-002595-01_L01", "I0MB0843", "I0MB0841", "I0MA0007", "I0MA0008",
+    audios = ["PFG13-TXT-16k_mono", "CCM-002595-01_L01", "I0MB0843", "I0MB0841", "I0MA0007", "I0MA0008",
               "I0MB0840", "I0MB0842", "I0MB0843", "I0MB0844", "I0MB0845"]
 
     cnn = CNN("dsit/models/cnn", debug=False)

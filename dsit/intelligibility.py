@@ -1,7 +1,9 @@
-from dsit.model import Model
-from dsit.preprocessing import Data
-import numpy as np
 import tensorflow as tf
+import numpy as np
+
+from dsit import INTELLIGIBILITY_MODEL_DIR, SEVERITY_MODEL_DIR
+from dsit.preprocessing import Data
+from dsit.model import Model
 
 
 class Intelligibility:
@@ -9,57 +11,39 @@ class Intelligibility:
     def __init__(self, model: Model, data: Data):
         self.model = model
         self.data = data
+        self.embeddings = self.reshape_input()
 
     def reshape_input(self):
-
-        #get output from CNN
+        # Get output from CNN
         extract = self.model.get_interpretable_activation_values(self.data)
 
-        #Grouping 1 seacond samples, ingoring the last after decimal
-        emb = np.concatenate([extract['layer2'],extract['layer3']],axis=1)
-        num_sample = emb.shape[0]//100
-        #reshape to the actual input size of tf.Pooling2D
-        emb = emb[:(num_sample*100)].reshape(num_sample,1,100,emb.shape[1])
-        return emb
+        # Grouping 1-second samples, ignoring the last after decimal
+        emb = np.concatenate([extract['layer2'], extract['layer3']], axis=1)
+        num_sample = emb.shape[0] // 100
 
+        # Reshape to the actual input size of tf.Pooling2D
+        return emb[:(num_sample * 100)].reshape(num_sample, 1, 100, emb.shape[1])
 
-    def intel(self) -> float:
+    def get_intelligibility_score(self) -> float:
+        # Initialize intelligibility model
+        pred = tf.saved_model.load(INTELLIGIBILITY_MODEL_DIR).signatures['serving_default']
+        predictions = pred(input=tf.convert_to_tensor(self.embeddings, dtype=tf.float32))
 
-        #Initnialize intel model
-        
-        model_path = "/data/coros2/ProjetPathoLoc/Patho/Work/RUGBI/PHD/" \
-                    "TRANSFER_LEARNING/MODELS_embeddings/NO_ATTENTION/" \
-                    "intel/EXP6/export/best_exporter/1678073160"
+        # Compute average of all second decisions
+        intel_score = np.average(predictions['output'].numpy())
 
-        pred = tf.saved_model.load(model_path).signatures['serving_default']
+        return round(float(intel_score), 2)
 
-        # Preparing input
-        emb = self.reshape_input()
-        predictions= pred(input=tf.convert_to_tensor(emb, dtype=tf.float32))
-        #compute average of all second decisions
-        intel_score=np.average(predictions['output'].numpy())
-        return intel_score
+    def get_severity_score(self) -> float:
+        # Initialize severity model
+        pred = tf.saved_model.load(SEVERITY_MODEL_DIR).signatures['serving_default']
+        predictions = pred(input=tf.convert_to_tensor(self.embeddings, dtype=tf.float32))
 
+        # Compute average of all second decisions
+        sev_score = np.average(predictions['output'].numpy())
 
-    def sev(self) -> float:
-
-        #Initnialize intel model
-        model_path = "/data/coros2/ProjetPathoLoc/Patho/Work/RUGBI/PHD/" \
-                    "TRANSFER_LEARNING/MODELS_embeddings/NO_ATTENTION/" \
-                    "sev/EXP3/export/best_exporter/1678072575"
-        # Preparing input
-        emb = self.reshape_input()
-        
-        pred = tf.saved_model.load(model_path).signatures['serving_default']
-        predictions= pred(input=tf.convert_to_tensor(emb, dtype=tf.float32))
-        #compute average of all second decisions
-        sev_score=np.average(predictions['output'].numpy())
-        return sev_score
-
-    def get_score(self) -> float:
-        return 10.0
+        return round(float(sev_score), 2)
 
 
 if __name__ == '__main__':
     pass
-

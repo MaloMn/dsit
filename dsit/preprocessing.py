@@ -32,6 +32,7 @@ class Data:
         :param save: Whether to save an h5 file or not.
         """
         # TODO Always save tfrecord, and keep a cache of whether we have already analysed such file
+        # TODO Don't save intermediate files by default, and pass them from function to function
         self.stem = file_stem
         self.save = save
         self.debug = debug

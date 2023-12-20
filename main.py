@@ -22,14 +22,15 @@ def analyse_audio(file_stem: str, model_path="dsit/models/cnn"):
     model.predict(data)
     anps = ANPS(model, data)
 
-    # Get intelligbility
+    # Get intelligibility
     intelligibility = Intelligibility(model, data)
 
     output = {
-            "score": intelligibility.get_score(),
-            "confusion_matrix": model.get_confusion_matrix(),
-            "anps": anps.get_anps_scores()
-        }
+        "intelligibility": intelligibility.get_intelligibility_score(),
+        "severity": intelligibility.get_severity_score(),
+        "confusion_matrix": model.get_confusion_matrix(),
+        "anps": anps.get_anps_scores()
+    }
 
     with open(f"{OUTPUT_DIR}{file_stem}.json", "w+") as f:
         json.dump(output, f)
