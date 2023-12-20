@@ -8,7 +8,7 @@ from sklearn.metrics import balanced_accuracy_score, confusion_matrix
 import matplotlib.pyplot as plt
 from typing import Dict
 
-from dsit import PLOTS_DIR, DEAD_NEURONS, NORMALIZATION_FACTORS, PHONES_PER_NEURON
+from dsit import PLOTS_DIR, DEAD_NEURONS, NORMALIZATION_FACTORS, PHONES_PER_NEURON, EMBEDDINGS
 from dsit.preprocessing import Data
 from dsit.utils import get_json
 
@@ -236,18 +236,12 @@ class CNN(Model):
     # TODO Idea, maybe setup CI/CD to make sure same results are obtained, regardless of architecture?
     def get_interpretable_activation_values(self, data: Data) -> Dict:
         activations = self.get_hidden_activation_values(data)
-
-        neuron_list = {
-            'layer2': [int(neuron) for neuron in CNN.phonemes_per_neuron.keys() if int(neuron) < 1024],
-            'layer3': [int(neuron) - 1024 for neuron in CNN.phonemes_per_neuron.keys() if int(neuron) >= 1024]
-        }
-
-        embeddings = get_json("dsit/data/embedding_idx_set.json")
+        embeddings = get_json(EMBEDDINGS)
 
         for layer in self.layer_names:
             # For each layer, only keep rows of interpretable neurons
+            # They need to be arranged in a particular order, contained in the EMBEDDINGS json file
             activations[layer] = activations[layer][:, embeddings[layer]]
-            np.save(layer + '.npy', activations[layer])
 
         return activations
 

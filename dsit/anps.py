@@ -6,6 +6,8 @@ from dsit.model import Model
 from dsit.preprocessing import Data
 from dsit.utils import get_json
 
+# TODO Check that matrices for phonetic traits are rigorously the same as Sondes used!!
+
 
 class ANPS:
 
