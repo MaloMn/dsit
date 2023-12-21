@@ -20,14 +20,16 @@ class Intelligibility:
         # Grouping 1-second samples, ignoring the last after decimal
         emb = np.concatenate([extract['layer2'], extract['layer3']], axis=1)
         num_sample = emb.shape[0] // 100
+        remaining_frames = emb.shape[0] % 100
 
-        remaining_frames = emb.shape[0]%100
-        #Round up the last second if have more than 0.5
-        if remaining_frames >=50:
+        # Round up the last second if have more than 0.5
+        if remaining_frames >= 50:
             num_sample += 1
-            #Create a artificial second with missing info from previous second
-            add_sec = emb[-100:,:]
-            emb = np.concatenate((emb[:-remaining_frames,:],add_sec), axis = 0)
+
+            # Create a artificial second with missing info from previous second
+            add_sec = emb[-100:, :]
+            emb = np.concatenate((emb[:-remaining_frames, :], add_sec), axis=0)
+
         # Reshape to the actual input size of tf.Pooling2D
         return emb[:(num_sample * 100)].reshape(num_sample, 1, 100, emb.shape[1])
 

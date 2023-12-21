@@ -2,6 +2,8 @@
 Transforms the input audio into frames linked with their associated phonemes.
 Also packs the output in a tensorflow file.
 """
+from typing import Tuple
+
 from python_speech_features import logfbank
 import scipy.io.wavfile as wav
 from pathlib import Path
@@ -13,10 +15,9 @@ import json
 
 from dsit.utils import check_file_exists, create_folder_if_not_exists, parser_test, serialize_example, get_batch_size, \
     generate_lbl_from_seg
-from dsit import H5_DIR, AUDIO_DIR, TFRECORD_DIR, PHONES_JSON
+from dsit import H5_DIR, TFRECORD_DIR, PHONES_JSON
 
 
-# TODO Avoid saving intermediary h5 files by chaining functions
 # TODO Only execute this if audio has changed, and has not been seen before, find a caching technique for this.
 # TODO Add better messages while data is being processed.
 # TODO Make it so each function returns what it computes. Each function calls the ones it needs.
@@ -26,38 +27,36 @@ class Data:
     window = 0.020  # ms
     step = 0.010  # ms
 
-    def __init__(self, file_stem: str, debug=False, save=True):
+    def __init__(self, audio_path: str, transcription_path: str, debug=False, save=False):
         """
         :param file_stem: Name of the file before the extension (abc.wav => stem = "abc")
         :param save: Whether to save an h5 file or not.
         """
-        # TODO Always save tfrecord, and keep a cache of whether we have already analysed such file
-        # TODO Don't save intermediate files by default, and pass them from function to function
-        self.stem = file_stem
         self.save = save
         self.debug = debug
 
         # Checking audio file exists
-        self.audio_path = Path(f"{AUDIO_DIR}{file_stem}.wav")
+        self.audio_path = Path(audio_path)
         check_file_exists(self.audio_path, "wav")
 
-        # Checking transcription file exists (lbl is created if it doesn't exist)
-        try:
-            self.phonemes_path = Path(f"{AUDIO_DIR}{file_stem}.lbl")
-            check_file_exists(self.phonemes_path, "lbl")
-        except FileNotFoundError:
-            self.phonemes_path = Path(f"{AUDIO_DIR}{file_stem}.seg")
-            check_file_exists(self.phonemes_path, "seg")
+        # Checking transcription exists
+        self.phonemes_path = Path(transcription_path)
+        check_file_exists(self.phonemes_path, "lbl")
 
+        self.stem = self.audio_path.stem
+
+        # Create .lbl transcription if it does not exist
+        if ".seg" in transcription_path:
             # Generating a lbl file
             generate_lbl_from_seg(self.phonemes_path)
 
             # Load lbl file
-            self.phonemes_path = Path(f"{AUDIO_DIR}{file_stem}.lbl")
+            self.phonemes_path = Path(transcription_path.replace(".seg", ".lbl"))
             check_file_exists(self.phonemes_path, "lbl")
 
-        # TODO Resample the audio if it isn't 16kHz
         self.framerate, self.audio_signal = wav.read(self.audio_path)
+        if self.framerate != 16_000:
+            raise Exception(f"Audio framerate should be 16 kHz (not {self.framerate})")
 
         # TODO Use names that reflect the data inside the hdf5 stores
         self.data_path = f"{H5_DIR}{self.stem}_data.h5"
@@ -69,34 +68,26 @@ class Data:
         self.data_norm_path = f"{H5_DIR}{self.stem}_data_normalized.h5"
         self.labels_num_32_path = f"{H5_DIR}{self.stem}_labels_numeric_32.h5"
 
-        self.data = None
-        self.parameters = None
-        self.labels = None
-        self.final = None
-        self.transcriptions = None
-        self.labels_num = None
-        self.data_norm = None
-        self.labels_num_32 = None
-
         self.tfrecord_path = f"{TFRECORD_DIR}{self.stem}.tfrecord"
         self.tfrecord_shape = f"{TFRECORD_DIR}{self.stem}_shapes.json"
 
         self.shape = None
+        self.labels_num_32 = None
 
         create_folder_if_not_exists(H5_DIR)
         create_folder_if_not_exists(TFRECORD_DIR)
 
     def preprocess(self):
-        self.extraction_fbank()
-        self.prepare_transcription()
-        self.merge_fbank_alignment()
-        self.split_data_labels()
-        self.converting_labels_to_numeric()
-        self.converting_labels_to_32()
-        self.normalization_fbank_per_segment()
-        self.tfrecord_generation()
+        data, labels = self.split_data_labels()
 
-    def extraction_fbank(self) -> None:
+        self.tfrecord_generation(
+            self.normalization_fbank_per_segment(data),
+            self.converting_labels_to_32(
+                self.converting_labels_to_numeric(labels)
+            )
+        )
+
+    def extraction_fbank(self) -> pd.DataFrame:
         """
         Fbank feature extraction from the speech signal
         :return: None
@@ -117,9 +108,9 @@ class Data:
             store_data.append("custom", df)
             store_data.close()
 
-        #self.parameters = df
+        return df
 
-    def prepare_transcription(self):
+    def prepare_transcription(self) -> pd.DataFrame:
         """Preprocessing phoneme alignment files"""
         dataframe = pd.DataFrame()
 
@@ -187,20 +178,17 @@ class Data:
             store_data.append("custom", dataframe)
             store_data.close()
 
-        # self.transcriptions = dataframe
+        return dataframe
 
-    def merge_fbank_alignment(self):
+    def merge_fbank_alignment(self, parameters: pd.DataFrame, transcript: pd.DataFrame) -> pd.DataFrame:
         """
         Merge the phoneme alignment and the speech signal fbank parameters
         """
-        parameters = (pd.read_hdf(self.parameters_path, key="custom", mode='r')
-                      .groupby(['Segment_name'], as_index=False)
+        parameters = (parameters.groupby(['Segment_name'], as_index=False)
                       .apply(lambda x: x.reset_index(drop=True))
                       .rename_axis(index=['File', 'Frame']))  # to save each frame unique index
 
         # TODO Investigate missing part of audio (last second is not present in the fbanks or transcription??)
-        transcript = pd.read_hdf(self.transcriptions_path, key="custom", mode='r')
-
         final_data = pd.merge(parameters, transcript, how='inner', on=['Segment_name', 'Frame'])
         final_data_gb = final_data.groupby(['Segment_name'], as_index=False)
         final_data = final_data_gb.apply(lambda x: x.reset_index(drop=True))
@@ -210,11 +198,11 @@ class Data:
             store_data.append("custom", final_data)
             store_data.close()
 
-        # self.final = final_data
+        return final_data
 
-    def split_data_labels(self):
+    def split_data_labels(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Split LABELS  DATA H5DATA"""
-        data = (pd.read_hdf(self.final_path, key="custom", mode='r')
+        data = (self.merge_fbank_alignment(self.extraction_fbank(), self.prepare_transcription())
                 .drop(['Frame_rank', 'Segment_name', 'Seg'], axis=1))
 
         if self.save:
@@ -226,14 +214,13 @@ class Data:
             store2.append("custom", data.iloc[:, 120])
             store2.close()
 
-        # self.data = data.iloc[:, :120]
-        self.labels = data.iloc[:, 120]
+        return data.iloc[:, :120], data.iloc[:, 120]
 
-    def converting_labels_to_numeric(self):
+    def converting_labels_to_numeric(self, labels: pd.DataFrame):
         """
         Convert labels to numeric
         """
-        labels = pd.read_hdf(self.labels_path, key="custom", mode='r')
+        # labels = pd.read_hdf(self.labels_path, key="custom", mode='r')
         lab = pd.DataFrame(labels)
 
         with open(PHONES_JSON, "r") as f:
@@ -247,12 +234,12 @@ class Data:
             store_num.append("custom", lab)
             store_num.close()
 
-        # self.labels_num = lab
+        return lab
 
     # TODO Remove this, it is now useless
-    def converting_labels_to_32(self):
+    def converting_labels_to_32(self, labels: pd.DataFrame):
         """Merge [oo&au / ee(oe)&eu] --> 31 classes + silence"""
-        labels = pd.read_hdf(self.labels_num_path, key="custom", mode='r')
+        # labels = pd.read_hdf(self.labels_num_path, key="custom", mode='r')
         labels['Phone'] = labels['Phone'].astype(int)
 
         if self.save:
@@ -262,10 +249,12 @@ class Data:
 
         self.labels_num_32 = labels
 
-    def normalization_fbank_per_segment(self):
+        return labels
+
+    def normalization_fbank_per_segment(self, dir_: pd.DataFrame) -> pd.DataFrame:
         """Mean Variance Normalization of the filterbank speech features per segment"""
         data = pd.DataFrame()
-        dir_ = pd.read_hdf(self.data_path, key="custom", mode='r')
+        # dir_ = pd.read_hdf(self.data_path, key="custom", mode='r')
 
         for i in tqdm(range(dir_.index.values[0][0], dir_.index.values[-1][0] + 1)):
             mean = np.mean(dir_.loc[i], axis=0)
@@ -273,11 +262,6 @@ class Data:
             aux = (dir_.loc[i] - mean) / std
             aux['File'] = i
             data = pd.concat([data, aux])
-
-        # parameters = (data.groupby(['File'], as_index=True)
-        #               .apply(lambda x: x.reset_index(drop=True))  # to save each frame unique index
-        #               .rename_axis(index=['File', 'Frame'])
-        #               .drop(['File'], axis=1))
 
         Data_gb = data.groupby(['File'], as_index=True)
         param = Data_gb.apply(lambda x: x.reset_index(drop=True))  # to save each frame unique index
@@ -291,14 +275,14 @@ class Data:
             store_data.append("custom", param)
             store_data.close()
 
-        # self.data_norm = param
+        return param
 
-    def tfrecord_generation(self):
+    def tfrecord_generation(self, normalized_data: pd.DataFrame, numeric_labels: pd.DataFrame) -> None:
         """
         TFrecord files generation
         """
-        normalized_data = pd.read_hdf(self.data_norm_path, mode="r", key="custom")
-        numeric_labels = pd.read_hdf(self.labels_num_32_path, mode="r", key="custom")
+        # normalized_data = pd.read_hdf(self.data_norm_path, mode="r", key="custom")
+        # numeric_labels = pd.read_hdf(self.labels_num_32_path, mode="r", key="custom")
 
         with tf.io.TFRecordWriter(self.tfrecord_path) as writer:
             for j in range(5, normalized_data.loc[0].shape[0] - 5):
