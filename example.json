@@ -1,5 +1,6 @@
 {
-  "score": 8.367843,
+  "intelligibility": 4.29,
+  "severity": 3.22,
   "confusion_matrix": {
     "labels": ["sil", "a", "\u025b", "e", "\u0153", "\u0254", "u", "y", "i", "a\u0303", "\u0254\u0303", "\u025b\u0303", "w", "\u0265", "j", "l", "\u0281", "n", "m", "\u0272","p", "t","k", "b", "d", "g", "f", "s", "\u0283", "v", "z", "\u0292"],
     "matrix": [
