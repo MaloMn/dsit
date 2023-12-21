@@ -178,8 +178,6 @@ class CNN(Model):
             intermediate_layer_model = tf.keras.Model(inputs=self.keras_model.input,
                                                       outputs=self.keras_model.get_layer(layer).output)
             output[name] = intermediate_layer_model(input_data).numpy()
-            # print(type(intermediate_layer_model(input_data)))
-            # np.save(name, intermediate_layer_model(input_data))
 
         return self._remove_dead_neurons(output)
 
