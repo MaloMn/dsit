@@ -1,0 +1,215 @@
+{
+  "consonants": {
+    "+sonorant": [
+      "mm",
+      "nn",
+      "gn",
+      "ll",
+      "yy",
+      "ww",
+      "uy"
+    ],
+    "+continuant": [
+      "ff",
+      "ss",
+      "ch",
+      "vv",
+      "zz",
+      "jj",
+      "rr",
+      "yy",
+      "ww",
+      "uy"
+    ],
+    "+nasal": [
+      "mm",
+      "nn",
+      "gn"
+    ],
+    "+voiced": [
+      "bb",
+      "dd",
+      "gg",
+      "vv",
+      "jj",
+      "zz",
+      "mm",
+      "nn",
+      "gn",
+      "ll",
+      "yy",
+      "ww",
+      "uy"
+    ],
+    "+compact": [
+      "kk",
+      "gg",
+      "ch",
+      "jj",
+      "gn",
+      "yy"
+    ],
+    "+acute": [
+      "tt",
+      "kk",
+      "dd",
+      "gg",
+      "ss",
+      "ch",
+      "zz",
+      "jj",
+      "nn",
+      "gn",
+      "ll",
+      "rr",
+      "yy"
+    ],
+    "-sonorant": [
+      "ff",
+      "tt",
+      "gg",
+      "dd",
+      "zz",
+      "bb",
+      "ss",
+      "pp",
+      "kk",
+      "ch",
+      "jj",
+      "vv"
+    ],
+    "-continuant": [
+      "gn",
+      "tt",
+      "nn",
+      "gg",
+      "dd",
+      "bb",
+      "pp",
+      "kk",
+      "mm"
+    ],
+    "-nasal": [
+      "ff",
+      "dd",
+      "bb",
+      "pp",
+      "kk",
+      "vv",
+      "uy",
+      "yy",
+      "tt",
+      "gg",
+      "zz",
+      "ss",
+      "ch",
+      "jj",
+      "ww",
+      "ll",
+      "rr"
+    ],
+    "-voiced": [
+      "ff",
+      "tt",
+      "ss",
+      "pp",
+      "kk",
+      "ch"
+    ],
+    "-compact": [
+      "ff",
+      "tt",
+      "nn",
+      "dd",
+      "zz",
+      "bb",
+      "ss",
+      "pp",
+      "mm",
+      "ww",
+      "vv",
+      "uy",
+      "ll",
+      "rr"
+    ],
+    "-acute": [
+      "ff",
+      "bb",
+      "pp",
+      "mm",
+      "ww",
+      "vv",
+      "uy"
+    ]
+  },
+  "vowels": {
+    "+nasal": [
+      "an",
+      "un",
+      "on"
+    ],
+    "+back": [
+      "au",
+      "ou",
+      "an",
+      "on"
+    ],
+    "+round": [
+      "ee",
+      "au",
+      "ou",
+      "uu",
+      "on"
+    ],
+    "+high": [
+      "ou",
+      "uu",
+      "ii"
+    ],
+    "+low": [
+      "aa",
+      "an"
+    ],
+    "-nasal": [
+      "ai",
+      "au",
+      "ou",
+      "uu",
+      "aa",
+      "ii",
+      "ee"
+    ],
+    "-back": [
+      "un",
+      "ai",
+      "uu",
+      "ii",
+      "ee"
+    ],
+    "-round": [
+      "ai",
+      "an",
+      "aa",
+      "ii"
+    ],
+    "-high": [
+      "un",
+      "ai",
+      "au",
+      "on",
+      "an",
+      "aa",
+      "ee"
+    ],
+    "-low": [
+      "un",
+      "ai",
+      "au",
+      "on",
+      "ou",
+      "uu",
+      "ii",
+      "ee"
+    ]
+  }
+}

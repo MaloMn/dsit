@@ -1,0 +1,9 @@
+numpy
+scipy
+python_speech_features
+pandas
+tensorflow
+tqdm
+scikit-learn
+tables
+matplotlib
