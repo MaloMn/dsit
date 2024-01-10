@@ -19,12 +19,8 @@ class Model(ABC):
                              'vv', 'zz', 'jj']
     label_names = ['silence', 'aa', 'ai', 'an', 'au', 'bb', 'ch', 'dd', 'ee', 'ei', 'ff', 'gg', 'gn', 'ii', 'jj', 'kk',
                    'll', 'mm', 'nn', 'on', 'ou', 'pp', 'rr', 'ss', 'tt', 'un', 'uu', 'uy', 'vv', 'ww', 'yy', 'zz']
-    label_names_organized_phonetic = ['sil', 'a', chr(603), 'e', chr(339), chr(596), 'u', 'y', 'i',
-                                      unicodedata.normalize('NFD', '\N{LATIN SMALL LETTER A}\N{COMBINING TILDE}'),
-                                      unicodedata.normalize('NFD', '\N{LATIN SMALL LETTER OPEN O}\N{COMBINING TILDE}'),
-                                      unicodedata.normalize('NFD', '\N{LATIN SMALL LETTER OPEN E}\N{COMBINING TILDE}'),
-                                      'w', chr(613), 'j', 'l', chr(641), 'n', 'm', chr(626), 'p', 't', 'k', 'b', 'd',
-                                      'g', 'f', 's', chr(643), 'v', 'z', chr(658)]
+    label_names_organized_phonetic = ["sil", "a", "ɛ", "e", "Û", "Ô", "u", "y", "i", "ã", "ɔ̃", "µ", "w", "ɥ", "j", "l",
+                                      "ʁ", "n", "m", "ɲ", "p", "t", "k", "b", "d", "g", "f", "s", "ʃ", "v", "z", "ʒ"]
 
     def __init__(self, model_path, debug=False):
         self.model_path = model_path
