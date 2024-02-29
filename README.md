@@ -41,8 +41,16 @@ This file contains:
 - local ANPS scores per phonetic trait.
 ```json
 {
-   "intelligibility": 4.29,
-   "severity": 3.22,
+    "intelligibility": {
+        "value": 4.29,
+        "minimum": 0,
+        "maximum": 10
+    },
+    "severity": {
+        "value": 3.22,
+        "minimum": 0,
+        "maximum": 10
+    },
    "confusion_matrix": {
       "labels": ["sil", "a", ..., "z", "\u0292"],
        "matrix": [[...], ..., [...]]
