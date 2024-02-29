@@ -1,6 +1,14 @@
 {
-  "intelligibility": 5.62,
-  "severity": 4.96,
+  "intelligibility": {
+    "value": 5.62,
+    "minimum": 0,
+    "maximum": 10
+  },
+  "severity": {
+    "value": 4.96,
+    "minimum": 0,
+    "maximum": 10
+  },
   "confusion_matrix": {
     "labels": [
       "sil",

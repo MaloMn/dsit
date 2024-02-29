@@ -26,8 +26,16 @@ def analyse_audio(audio: str, transcription: str, model_path="dsit/models/cnn"):
     intelligibility = Intelligibility(model, data)
 
     output = {
-        "intelligibility": intelligibility.get_intelligibility_score(),
-        "severity": intelligibility.get_severity_score(),
+        "intelligibility": {
+            "value": intelligibility.get_intelligibility_score(),
+            "minimum": 0,
+            "maximum": 10
+        },
+        "severity": {
+            "value": intelligibility.get_severity_score(),
+            "minimum": 0,
+            "maximum": 10
+        },
         "confusion_matrix": model.get_confusion_matrix(),
         "anps": anps.get_anps_scores()
     }
