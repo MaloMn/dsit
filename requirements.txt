@@ -3,7 +3,7 @@ numpy==1.26.1
 scipy==1.11.3
 python_speech_features==0.6
 pandas==2.1.2
-tensorflow==2.14
+tensorflow==2.14.0
 tqdm==4.66.1
 tables==3.9.1
 matplotlib==3.8.1
