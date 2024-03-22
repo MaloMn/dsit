@@ -137,6 +137,20 @@ class Data:
 
         # *** Rectify th gn duration
         gn_index = list(df[df.Phone == 'gn'].index)
+
+        # Filtering out gn that were present before (given by the forced alignment)
+        temp = []
+        i = 0
+        while i < len(gn_index):
+            if i + 1 < len(gn_index) and gn_index[i] + 1 == gn_index[i + 1]:
+                temp += [gn_index[i], gn_index[i + 1]]
+                i += 2
+            else:
+                i += 1
+
+        gn_index = temp
+
+        # Merging consecutive gn
         for i in range(0, len(gn_index), 2):
             df.at[gn_index[i], 'End'] = df.at[gn_index[i + 1], 'End']
 
