@@ -52,7 +52,3 @@ class Intelligibility:
         sev_score = np.average(predictions['output'].numpy())
 
         return round(float(sev_score), 2)
-
-
-if __name__ == '__main__':
-    pass

@@ -353,7 +353,3 @@ def _float_feature(value):
 def _int64_feature(value):
     """Returns an int64_list from a bool / enum / int / uint."""
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
-
-
-if __name__ == '__main__':
-    print(Data("I0MB0841").preprocess())

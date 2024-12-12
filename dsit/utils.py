@@ -109,7 +109,3 @@ def generate_lbl_from_seg(file_path: Path):
 def get_json(path: str) -> Dict:
     with open(path, "r") as f:
         return json.load(f)
-
-
-if __name__ == '__main__':
-    generate_lbl_from_seg(Path("audio/I0MB0844.seg"))

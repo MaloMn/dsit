@@ -94,15 +94,3 @@ class ANPS:
                 divisor += ANPS.bref_median_activation_per_neuron_per_phoneme[str(n)][k]
 
         return min(1.0, round(dividend / divisor, 2))
-
-
-if __name__ == '__main__':
-    from dsit.model import CNN
-
-    data = Data("CCM-002595-01_L01")
-    data.preprocess()
-    anps = ANPS(CNN("models/cnn"), data)
-
-    # TODO Fix bug encountered in confusion matrix (rows misordered)
-    # TODO Fix pandas warning
-    print(anps.get_anps_scores())

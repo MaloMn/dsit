@@ -238,20 +238,3 @@ class CNN(Model):
             activations[layer] = activations[layer][:, embeddings[layer]]
 
         return activations
-
-
-if __name__ == '__main__':
-    audios = ["PFG13-TXT-16k_mono", "CCM-002595-01_L01", "I0MB0843", "I0MB0841", "I0MA0007", "I0MA0008",
-              "I0MB0840", "I0MB0842", "I0MB0843", "I0MB0844", "I0MB0845"]
-
-    cnn = CNN("dsit/models/cnn", debug=False)
-    for audio in audios:
-        preprocessed_data = Data(audio)
-        preprocessed_data.preprocess()
-
-        cnn.predict(preprocessed_data)
-        cnn.plot_confusion_matrix()
-
-        # print(cnn.get_hidden_activation_values(preprocessed_data))
-        # print(cnn.get_interpretable_activation_values(preprocessed_data))
-        break
